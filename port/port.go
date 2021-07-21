@@ -7,12 +7,13 @@ import (
 )
 
 type ScanResult struct {
-    Port string
+    Port int
+    Protocol string
     State string
 }
 
 func ScanPort(protocol, hostname string, port int) ScanResult {
-    result := ScanResult{Port: protocol + "/" + fmt.Sprint(port)}
+    result := ScanResult{Port:port,Protocol:protocol}
     address := fmt.Sprintf("%s:%d", hostname, port)
     conn, err := net.DialTimeout(protocol, address, 60*time.Second)
     if err != nil {
@@ -24,18 +25,23 @@ func ScanPort(protocol, hostname string, port int) ScanResult {
     return result
 }
 
-func InitialScan(hostname string) []ScanResult {
+func InitialScan(hostname, protocol string) []ScanResult {
     var results []ScanResult
 
     port_c := make(chan int, 100)
     result_c := make(chan ScanResult)
 
     for i := 0; i < cap(port_c)/2; i++ {
-        go Scanner("tcp", hostname, port_c, result_c)
-        go Scanner("udp", hostname, port_c, result_c)
+        go Scanner(protocol, hostname, port_c, result_c)
     }
 
-    for i := 1; i <= 1024; i++ {
+    go func() {
+        for i := 1; i <= 1024; i++ {
+            port_c <- i
+        }
+    }()
+
+    for i := 0; i < 1024; i++ {
         result := <- result_c
         results = append(results, result)
     }
