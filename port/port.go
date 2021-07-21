@@ -30,7 +30,7 @@ func InitialScan(hostname string) []ScanResult {
     port_c := make(chan int, 100)
     result_c := make(chan ScanResult)
 
-    for i := 0; i < cap(ports)/2; i++ {
+    for i := 0; i < cap(port_c)/2; i++ {
         go Scanner("tcp", hostname, port_c, result_c)
         go Scanner("udp", hostname, port_c, result_c)
     }
