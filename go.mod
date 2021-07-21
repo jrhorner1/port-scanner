@@ -1,3 +1,3 @@
-module github.com/jrhorner/port-scanner
+module github.com/jrhorner1/port-scanner
 
 go 1.16
