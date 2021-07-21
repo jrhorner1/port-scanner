@@ -4,6 +4,8 @@ import (
     "fmt"
     "net"
     "time"
+    "strings"
+    "strconv"
 )
 
 type ScanResult struct {
@@ -25,8 +27,16 @@ func ScanPort(protocol, hostname string, port int) ScanResult {
     return result
 }
 
-func InitialScan(hostname, protocol string) []ScanResult {
+func Scan(hostname, protocol string, prange string) []ScanResult {
     var results []ScanResult
+
+    pr := strings.Split(prange, "-")
+    if len(prange) == 1 {
+        fmt.Println("Range must be specified as `1-10`.")
+        // exit
+    }
+    startp, _ := strconv.Atoi(string(pr[0]))
+    endp, _ := strconv.Atoi(string(pr[1]))
 
     port_c := make(chan int, 100)
     result_c := make(chan ScanResult)
@@ -36,12 +46,12 @@ func InitialScan(hostname, protocol string) []ScanResult {
     }
 
     go func() {
-        for i := 1; i <= 1024; i++ {
+        for i := startp; i <= endp; i++ {
             port_c <- i
         }
     }()
 
-    for i := 0; i < 1024; i++ {
+    for i := startp; i <= endp; i++ {
         result := <- result_c
         results = append(results, result)
     }

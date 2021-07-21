@@ -6,8 +6,10 @@ import (
 )
 
 func main() {
-    scan := port.InitialScan("192.168.11.2", "tcp")
+    scan := port.Scan("scanme.nmap.org", "tcp", "50-250")
     for i := range scan {
-        fmt.Printf("%d/%s %s\n",scan[i].Port, scan[i].Protocol, scan[i].State)
+        if scan[i].State == "Open" {
+            fmt.Printf("%d/%s %s\n",scan[i].Port, scan[i].Protocol, scan[i].State)
+        }
     }
 }
