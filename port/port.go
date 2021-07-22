@@ -5,7 +5,9 @@ import (
     "net"
     "time"
     "strings"
+    "unicode"
     "strconv"
+    "sort"
 )
 
 type ScanResult struct {
@@ -14,12 +16,31 @@ type ScanResult struct {
     State string
 }
 
+type ScanResults []ScanResult
+
+func (sr ScanResults) Len() int {
+    return len(sr)
+}
+
+func (sr ScanResults) Less(i, j int) bool {
+    return sr[i].Port < sr[j].Port
+}
+
+func (sr ScanResults) Swap(i, j int) {
+    sr[i], sr[j] = sr[j], sr[i]
+}
+
 func ScanPort(protocol, hostname string, port int) ScanResult {
     result := ScanResult{Port:port,Protocol:protocol}
     address := fmt.Sprintf("%s:%d", hostname, port)
     conn, err := net.DialTimeout(protocol, address, 60*time.Second)
+    // TODO: add logic to determine closed or filtered
     if err != nil {
-        result.State = "Closed"
+        if strings.Contains(fmt.Sprint(err), "connection refused") {
+            result.State = "Closed"
+        } else {
+            result.State = "Filtered"
+        }
         return result
     }
     defer conn.Close()
@@ -27,18 +48,32 @@ func ScanPort(protocol, hostname string, port int) ScanResult {
     return result
 }
 
-func Scan(hostname, protocol string, prange string) []ScanResult {
-    var results []ScanResult
+func Scanner(protocol, hostname string, port_c chan int, result_c chan ScanResult) {
+    for port := range port_c {
+        result_c <- ScanPort(protocol, hostname, port)
+    }
+}
 
-    pr := strings.Split(prange, "-")
-    if len(prange) == 1 {
-        fmt.Println("Range must be specified as `1-10`.")
-        // exit
+func Scan(hostname, protocol string, prange string) []ScanResult {
+    var results ScanResults
+
+    f := func(c rune) bool {
+        return !unicode.IsNumber(c)
+    }
+    pr := strings.FieldsFunc(prange, f)
+    if len(pr) != 2 {
+        fmt.Println("Range format error.")
+        return results
     }
     startp, _ := strconv.Atoi(string(pr[0]))
     endp, _ := strconv.Atoi(string(pr[1]))
+    if endp > 65535 {
+        endp = 65535
+        fmt.Println("There are only a total of 65535 ports.")
+    }
 
-    port_c := make(chan int, 100)
+    buffer := 200
+    port_c := make(chan int, buffer)
     result_c := make(chan ScanResult)
 
     for i := 0; i < cap(port_c)/2; i++ {
@@ -59,11 +94,6 @@ func Scan(hostname, protocol string, prange string) []ScanResult {
     close(port_c)
     close(result_c)
 
+    sort.Sort(results)
     return results
-}
-
-func Scanner(protocol, hostname string, port_c chan int, result_c chan ScanResult) {
-    for port := range port_c {
-        result_c <- ScanPort(protocol, hostname, port)
-    }
 }
